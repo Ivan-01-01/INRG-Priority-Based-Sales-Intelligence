@@ -1,0 +1,245 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+
+    <title>Buffalo ZIP Incentive Map</title>
+
+<link
+        rel="stylesheet"
+        href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@500;700&family=Source+Sans+3:wght@400;600&display=swap"
+    >
+
+<link rel="stylesheet" href="style.css">
+</head>
+
+<body>
+    <main>
+        
+        <h1>Buffalo Incentive Map</h1>
+
+        <p class="sub">
+            Each shape is a real ZIP code area. Darker areas have more incentive dollars available.
+            Incentives change weekly, so shading reflects what is active at the current UTC time.
+            Select a ZIP to see each product with its start date, estimated end date, and how it
+            compares to your weekly target. Insulation uses the NOCO calculator; the other products
+            are still simulated. Drag to pan; zoom with the buttons or scroll.
+        </p>
+
+<div class="bar">
+            <label for="z" class="mute">Go to ZIP</label>
+            <input id="z" inputmode="numeric" maxlength="5" placeholder="e.g. 14226">
+            <button id="go" type="button">Show</button>
+            <span class="msg" id="msg" role="alert"></span>
+        </div>
+
+        
+        <div class="ctl panel">
+            <div class="clock" id="clk"></div>
+
+            <label for="tgt">
+                Weekly target (incentive $)
+                <input
+                    id="tgt"
+                    type="number"
+                    min="0"
+                    step="1000"
+                    value="20000"
+                    inputmode="numeric"
+                >
+            </label>
+
+            <label for="sort">
+                Sort products by
+                <select id="sort">
+                    <option value="priority">Priority</option>
+                    <option value="time">Ending soonest</option>
+                    <option value="value">Highest value</option>
+                </select>
+            </label>
+
+            <label class="chk" for="hl">
+                <input id="hl" type="checkbox">
+                Outline ZIPs with incentives ending within 7 days
+            </label>
+        </div>
+
+        
+        <details class="panel ins">
+            <summary>Insulation inputs (NOCO calculator, Buffalo)</summary>
+
+            <div class="form-grid">
+                <label>
+                    Operating profile
+                    <select id="profile"></select>
+                </label>
+
+                <label>
+                    Square footage
+                    <input id="sqft" type="number" min="1" value="10000">
+                </label>
+
+                <label>
+                    Floors
+                    <input id="floors" type="number" min="1" value="1">
+                </label>
+
+                <label>
+                    Building shape
+                    <select id="shape"></select>
+                </label>
+
+                <label>
+                    Existing insulation
+                    <select id="rOld"></select>
+                </label>
+
+                <label>
+                    Proposed insulation
+                    <select id="rNew"></select>
+                </label>
+
+                <label>
+                    Heating system
+                    <select id="fuel"></select>
+                </label>
+
+                <label>
+                    Heating efficiency / COP
+                    <input id="eff" type="number" step="0.05" min="0.1" value="1">
+                </label>
+
+                <label>
+                    Cooling system
+                    <select id="cool">
+                        <option value="rtu">Packaged rooftop unit</option>
+                        <option value="none">None</option>
+                    </select>
+                </label>
+
+                <label>
+                    Cooling COP
+                    <input id="cop" type="number" step="0.1" min="0.5" value="3">
+                </label>
+
+                <label>
+                    Installed cost ($/sq ft insulated)
+                    <input id="cost" type="number" step="0.5" placeholder="Not in the sheet">
+                </label>
+
+                <label>
+                    Program start (placeholder)
+                    <input id="i_ws" type="date" value="2026-01-01">
+                </label>
+
+                <label>
+                    Program est. end (placeholder)
+                    <input id="i_we" type="date" value="2026-12-31">
+                </label>
+            </div>
+        </details>
+
+        
+        <section class="panel" id="qp">
+            <h2>Action Queue</h2>
+
+            <div class="pctl">
+                <label class="mute" for="qbud">Budget (net cost, optional)</label>
+                <input
+                    id="qbud"
+                    class="small-input"
+                    type="number"
+                    min="0"
+                    step="1000"
+                    placeholder="No limit"
+                >
+
+<button class="g" id="qai" type="button" hidden>
+                    Ask Claude to review
+                </button>
+
+                <button class="g" id="qclr" type="button">Clear</button>
+            </div>
+
+            <details>
+                <summary>Adjust ordering weights</summary>
+
+                <div class="wts">
+                    <label for="w_v">
+                        10-year value
+                        <input id="w_v" type="range" min="0" max="10" value="5">
+                    </label>
+
+                    <label for="w_u">
+                        Urgency (time left)
+                        <input id="w_u" type="range" min="0" max="10" value="3">
+                    </label>
+
+                    <label for="w_p">
+                        Payback speed
+                        <input id="w_p" type="range" min="0" max="10" value="3">
+                    </label>
+
+                    <label for="w_s">
+                        Size vs weekly target
+                        <input id="w_s" type="range" min="0" max="10" value="2">
+                    </label>
+                </div>
+            </details>
+
+            <div class="mute" id="qmeta"></div>
+            <ol id="qlist"></ol>
+            <div id="qout" aria-live="polite"></div>
+
+            <p class="mute queue-help">
+                Optimized order: incentives ending within 7 days go first (soonest deadline),
+                then the rest by weighted fit, then ones that have not started. With a budget set,
+                items that no longer fit are flagged to defer. Add items with "+ Queue" in any ZIP's
+                product list. Weights set how "weighted fit" is scored.
+            </p>
+        </section>
+
+        
+        <div class="grid">
+            <section class="panel">
+
+<svg
+                    id="map"
+                    role="group"
+                    aria-label="Map of Western New York ZIP codes"
+                >
+                    <g id="g"></g>
+                </svg>
+
+                <div class="tools">
+                    <div class="legend">
+                        <span>Fewer</span>
+                        <i></i>
+                        <span>More incentives</span>
+                    </div>
+
+                    <div>
+                        <button class="g" id="zi" type="button" aria-label="Zoom in">+</button>
+                        <button class="g" id="zo" type="button" aria-label="Zoom out">−</button>
+                        <button class="g" id="zr" type="button">Reset</button>
+                    </div>
+                </div>
+
+                <p class="mute map-note">
+                    ZIP shapes are real (Census ZCTA, simplified). Incentive amounts and dates are simulated.
+                </p>
+            </section>
+
+<section class="panel" id="side">
+                <p class="mute">
+                    Select a ZIP area to rank its products, or start with the ZIPs with the most active incentives:
+                </p>
+                <div class="top" id="top"></div>
+            </section>
+        </div>
+    </main>
+
+<script src="script.js"></script>
+</body>
+</html>
